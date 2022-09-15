@@ -33,7 +33,7 @@ type Package struct {
 	Version   string `json:"version"`
 	Resolved  string `json:"resolved"`
 	Integrity string `json:"integrity"`
-	License   string `json:""`
+	License   string `json:"license"`
 }
 
 // parsePackageLock parses a package-lock.json and returns the discovered JavaScript packages.
@@ -47,38 +47,51 @@ func parsePackageLock(path string, reader io.Reader) ([]*pkg.Package, []artifact
 	var packages []*pkg.Package
 	dec := json.NewDecoder(reader)
 
+	var lock PackageLock
 	for {
-		var lock PackageLock
 		if err := dec.Decode(&lock); err == io.EOF {
 			break
 		} else if err != nil {
 			return nil, nil, fmt.Errorf("failed to parse package-lock.json file: %w", err)
 		}
-		licenseMap := make(map[string]string)
-		for _, pkgMeta := range lock.Packages {
-			var sb strings.Builder
-			sb.WriteString(pkgMeta.Resolved)
-			sb.WriteString(pkgMeta.Integrity)
-			licenseMap[sb.String()] = pkgMeta.License
-		}
+	}
 
+	if lock.LockfileVersion == 1 {
 		for name, pkgMeta := range lock.Dependencies {
-			var sb strings.Builder
-			sb.WriteString(pkgMeta.Resolved)
-			sb.WriteString(pkgMeta.Integrity)
-			var licenses []string
-			if license, exists := licenseMap[sb.String()]; exists {
-				licenses = append(licenses, license)
-			}
 			packages = append(packages, &pkg.Package{
 				Name:     name,
 				Version:  pkgMeta.Version,
 				Language: pkg.JavaScript,
 				Type:     pkg.NpmPkg,
-				Licenses: licenses,
 			})
 		}
 	}
 
+	if lock.LockfileVersion == 2 || lock.LockfileVersion == 3 {
+		for name, pkgMeta := range lock.Packages {
+			if name == "" {
+				continue
+			}
+
+			newPackage := &pkg.Package{
+				Name:     getNameFromPath(name),
+				Version:  pkgMeta.Version,
+				Language: pkg.JavaScript,
+				Type:     pkg.NpmPkg,
+			}
+
+			if pkgMeta.License != "" {
+				newPackage.Licenses = []string{pkgMeta.License}
+			}
+
+			packages = append(packages, newPackage)
+		}
+	}
+
 	return packages, nil, nil
+}
+
+func getNameFromPath(path string) string {
+	parts := strings.Split(path, "node_modules/")
+	return parts[len(parts)-1]
 }

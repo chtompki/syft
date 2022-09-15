@@ -155,3 +155,43 @@ func TestParsePackageLockV2(t *testing.T) {
 
 	assertPkgsEqual(t, actual, expected)
 }
+
+func TestParsePackageLockV3(t *testing.T) {
+	expected := map[string]pkg.Package{
+		"@types/prop-types": {
+			Name:     "@types/prop-types",
+			Version:  "15.7.5",
+			Language: pkg.JavaScript,
+			Type:     pkg.NpmPkg,
+		},
+		"@types/react": {
+			Name:     "@types/prop-types",
+			Version:  "18.0.20",
+			Language: pkg.JavaScript,
+			Type:     pkg.NpmPkg,
+		},
+		"@types/scheduler": {
+			Name:     "@types/scheduler",
+			Version:  "0.16.2",
+			Language: pkg.JavaScript,
+			Type:     pkg.NpmPkg,
+		},
+		"csstype": {
+			Name:     "csstype",
+			Version:  "3.1.1",
+			Language: pkg.JavaScript,
+			Type:     pkg.NpmPkg,
+		},
+	}
+	fixture, err := os.Open("test-fixtures/pkg-lock/package-lock-3.json")
+	if err != nil {
+		t.Fatalf("failed to open fixture: %+v", err)
+	}
+
+	actual, _, err := parsePackageLock(fixture.Name(), fixture)
+	if err != nil {
+		t.Fatalf("failed to parse package-lock.json: %+v", err)
+	}
+
+	assertPkgsEqual(t, actual, expected)
+}
